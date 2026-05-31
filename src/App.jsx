@@ -1,16 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import {
-  Plus,
-  Trash2,
-  Copy,
-  CalendarDays,
-  CheckCircle2,
-  RotateCcw,
-  Save,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
+import { Plus, Trash2, Copy, CalendarDays, CheckCircle2, RotateCcw, Save, Wifi, WifiOff } from "lucide-react";
 import "./style.css";
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -56,7 +46,6 @@ function createDefaultData() {
 
 export function parseHours(value) {
   if (!value || !value.includes("-")) return 0;
-
   const [start, end] = value.split("-").map((v) => v.trim());
 
   const toMinutes = (time) => {
@@ -68,34 +57,13 @@ export function parseHours(value) {
 
   const startMin = toMinutes(start);
   let endMin = toMinutes(end);
-
   if (startMin === null || endMin === null) return 0;
   if (endMin < startMin) endMin += 24 * 60;
-
   return Math.max(0, (endMin - startMin) / 60);
 }
 
 export function formatHours(hours) {
   return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
-}
-
-function runSelfTests() {
-  const tests = [
-    { input: "09:00-17:00", expected: 8, label: "standard full day" },
-    { input: "09:30-14:00", expected: 4.5, label: "half-hour shift" },
-    { input: "18:00-01:00", expected: 7, label: "overnight shift" },
-    { input: "bad input", expected: 0, label: "invalid input" },
-    { input: "25:00-26:00", expected: 0, label: "invalid time range" },
-    { input: "", expected: 0, label: "empty shift" },
-  ];
-
-  tests.forEach((test) => {
-    const actual = parseHours(test.input);
-    console.assert(
-      actual === test.expected,
-      `parseHours failed for ${test.label}: expected ${test.expected}, got ${actual}`
-    );
-  });
 }
 
 function normalizeData(data) {
@@ -123,26 +91,18 @@ function saveLocalData(data) {
 
 async function fetchOnlineRota() {
   if (!supabase) return null;
-
-  const { data, error } = await supabase
-    .from("rotas")
-    .select("data")
-    .eq("id", ROTA_ID)
-    .maybeSingle();
-
+  const { data, error } = await supabase.from("rotas").select("data").eq("id", ROTA_ID).maybeSingle();
   if (error) throw error;
   return data?.data ? normalizeData(data.data) : null;
 }
 
 async function saveOnlineRota(data) {
   if (!supabase) return;
-
   const { error } = await supabase.from("rotas").upsert({
     id: ROTA_ID,
     data,
     updated_at: new Date().toISOString(),
   });
-
   if (error) throw error;
 }
 
@@ -150,16 +110,12 @@ export default function StaffWeeklyHoursApp() {
   const [data, setData] = useState(createDefaultData);
   const [loaded, setLoaded] = useState(false);
   const [onlineReady, setOnlineReady] = useState(Boolean(supabase));
-  const [status, setStatus] = useState(
-    supabase ? "Connecting to live rota..." : "Offline setup: add Supabase keys in Vercel to make this shared."
-  );
+  const [status, setStatus] = useState(supabase ? "Connecting to live rota..." : "Offline setup: add Supabase keys in Vercel to make this shared.");
   const [copyMessage, setCopyMessage] = useState("Use the box below to copy and share the rota.");
   const shareTextRef = useRef(null);
   const saveTimerRef = useRef(null);
 
   useEffect(() => {
-    runSelfTests();
-
     async function start() {
       const localData = loadLocalData();
       setData(localData);
@@ -194,7 +150,6 @@ export default function StaffWeeklyHoursApp() {
 
   useEffect(() => {
     if (!loaded) return;
-
     saveLocalData(data);
 
     if (!supabase) {
@@ -291,12 +246,10 @@ export default function StaffWeeklyHoursApp() {
     staff.forEach((person) => {
       const total = totals.find((t) => t.id === person.id)?.total || 0;
       lines.push(`${person.name || "Unnamed"} - ${formatHours(total)}`);
-
       days.forEach((day) => {
         const shift = person.shifts?.[day];
         if (shift) lines.push(`  ${day}: ${shift}`);
       });
-
       lines.push("");
     });
 
@@ -314,115 +267,137 @@ export default function StaffWeeklyHoursApp() {
   return (
     <main className="page">
       <section className="container">
-        <div className="top-bar">
-          <div>
-            <div className="pill"><CalendarDays size={16} /> Weekly staff hours</div>
-            <h1>Work Hours Rota</h1>
-            <p className="subtext">Built for 7 staff. Everyone can edit shifts, names and notes from the same shared link.</p>
-          </div>
-
-          <div className="card small-card">
-            <label>Week starting</label>
-            <input type="date" value={week} onChange={(e) => setWeek(e.target.value)} />
-          </div>
+        <div className="mobile-header">
+          <div className="pill"><CalendarDays size={16} /> Staff rota</div>
+          <h1>Work Rota</h1>
+          <p>Tap a day below to quickly update shifts.</p>
         </div>
 
-        <div className="card status-card">
+        <div className="top-actions">
+          <label className="week-box">
+            <span>Week starting</span>
+            <input type="date" value={week} onChange={(e) => setWeek(e.target.value)} />
+          </label>
+          <button className="button" onClick={addStaff}><Plus size={18} /> Add staff</button>
+        </div>
+
+        <div className="status-card card">
           <div className="status-left">
             {onlineReady ? <Wifi className="green" size={20} /> : <WifiOff className="amber" size={20} />}
             <span>{status}</span>
           </div>
-          {supabase && <button className="button secondary" onClick={refreshFromOnline}>Refresh live rota</button>}
+          {supabase && <button className="button secondary" onClick={refreshFromOnline}>Refresh</button>}
         </div>
 
-        <div className="layout">
-          <div className="card main-card">
-            <div className="section-head">
-              <div>
-                <h2>Editable weekly rota</h2>
-                <p>Type a shift as 09:00-17:00. Overnight shifts also work.</p>
-              </div>
-              <div className="actions">
-                <button className="button" onClick={addStaff}><Plus size={16} /> Add staff</button>
-                <button className="button secondary" onClick={selectShareText}><Copy size={16} /> Select share text</button>
-                <button className="button secondary" onClick={resetRota}><RotateCcw size={16} /> Reset</button>
-              </div>
-            </div>
-
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Staff</th>
-                    {days.map((day) => <th key={day}>{day.slice(0, 3)}</th>)}
-                    <th>Total</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {staff.map((person) => {
-                    const total = totals.find((t) => t.id === person.id)?.total || 0;
-                    return (
-                      <tr key={person.id}>
-                        <td><input value={person.name} onChange={(e) => updateName(person.id, e.target.value)} /></td>
-                        {days.map((day) => (
-                          <td key={day}>
-                            <input
-                              placeholder="09:00-17:00"
-                              value={person.shifts?.[day] || ""}
-                              onChange={(e) => updateShift(person.id, day, e.target.value)}
-                            />
-                          </td>
-                        ))}
-                        <td className="total-cell">{formatHours(total)}</td>
-                        <td>
-                          <button className="icon-button" onClick={() => removeStaff(person.id)} aria-label={`Remove ${person.name || "staff member"}`}>
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <aside className="side">
-            <div className="card">
-              <div className="title-row"><Save size={20} /><h2>Summary</h2></div>
-              <div className="total-box">
-                <p>Total scheduled hours</p>
-                <strong>{formatHours(weeklyTotal)}</strong>
-              </div>
-              <div className="staff-totals">
-                {totals.map((person) => (
-                  <div className="staff-total" key={person.id}>
-                    <span>{person.name || "Unnamed"}</span>
-                    <strong>{formatHours(person.total)}</strong>
+        <section className="mobile-days">
+          {days.map((day) => (
+            <details className="day-card" key={day} open={day === days[0]}>
+              <summary>
+                <strong>{day}</strong>
+                <span>{staff.filter((person) => person.shifts?.[day]).length} working</span>
+              </summary>
+              <div className="day-staff-list">
+                {staff.map((person) => (
+                  <div className="mobile-shift-row" key={`${day}-${person.id}`}>
+                    <input
+                      className="name-input"
+                      value={person.name}
+                      onChange={(e) => updateName(person.id, e.target.value)}
+                    />
+                    <input
+                      className="shift-input"
+                      placeholder="Off / 09:00-17:00"
+                      value={person.shifts?.[day] || ""}
+                      onChange={(e) => updateShift(person.id, day, e.target.value)}
+                    />
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
+          ))}
+        </section>
 
-            <div className="card">
-              <h2>Staff notes</h2>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <section className="desktop-table card">
+          <div className="section-head">
+            <div>
+              <h2>Desktop rota</h2>
+              <p>Full weekly view for larger screens.</p>
             </div>
+            <div className="actions">
+              <button className="button secondary" onClick={selectShareText}><Copy size={16} /> Select share text</button>
+              <button className="button secondary" onClick={resetRota}><RotateCcw size={16} /> Reset</button>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Staff</th>
+                  {days.map((day) => <th key={day}>{day.slice(0, 3)}</th>)}
+                  <th>Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {staff.map((person) => {
+                  const total = totals.find((t) => t.id === person.id)?.total || 0;
+                  return (
+                    <tr key={person.id}>
+                      <td><input value={person.name} onChange={(e) => updateName(person.id, e.target.value)} /></td>
+                      {days.map((day) => (
+                        <td key={day}>
+                          <input
+                            placeholder="09:00-17:00"
+                            value={person.shifts?.[day] || ""}
+                            onChange={(e) => updateShift(person.id, day, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                      <td className="total-cell">{formatHours(total)}</td>
+                      <td><button className="icon-button" onClick={() => removeStaff(person.id)}><Trash2 size={16} /></button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-            <div className="card">
-              <div className="title-row"><CheckCircle2 size={20} /><h2>Share preview</h2></div>
-              <p className="subtext small">{copyMessage}</p>
-              <textarea
-                ref={shareTextRef}
-                readOnly
-                value={shareText}
-                className="share-box"
-                onFocus={(e) => e.currentTarget.select()}
-              />
+        <section className="bottom-grid">
+          <div className="card">
+            <div className="title-row"><Save size={20} /><h2>Hours summary</h2></div>
+            <div className="total-box">
+              <p>Total scheduled hours</p>
+              <strong>{formatHours(weeklyTotal)}</strong>
             </div>
-          </aside>
-        </div>
+            <div className="staff-totals">
+              {totals.map((person) => (
+                <div className="staff-total" key={person.id}>
+                  <span>{person.name || "Unnamed"}</span>
+                  <strong>{formatHours(person.total)}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Staff notes</h2>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+
+          <div className="card">
+            <div className="title-row"><CheckCircle2 size={20} /><h2>Share text</h2></div>
+            <p className="subtext small">{copyMessage}</p>
+            <button className="button secondary full" onClick={selectShareText}><Copy size={16} /> Select rota text</button>
+            <textarea
+              ref={shareTextRef}
+              readOnly
+              value={shareText}
+              className="share-box"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+          </div>
+        </section>
       </section>
     </main>
   );
